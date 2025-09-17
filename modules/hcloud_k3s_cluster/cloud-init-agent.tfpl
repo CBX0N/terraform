@@ -1,0 +1,27 @@
+#cloud-config
+users:
+  - name: ${username}
+    groups: sudo
+    shell: /bin/bash
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    lock_passwd: false
+    hashed_passwd: ${hashed_password}
+    ssh_authorized_keys:
+      - ${ssh_key}
+
+runcmd:
+  - |
+    until ip -4 -o addr show dev $(ip -o link show | awk -F': ' '/enp/{print $2; exit}') | grep -q 'inet '; do
+      echo "Waiting for network..."
+      sleep 2
+    done
+
+    iface=$(ip -4 -o addr show | grep enp | awk '{print $2}')
+    nodeip=$(ip -4 -o addr show | grep enp | awk '{print $4}' | cut -d/ -f1)
+    
+    curl -sfL https://get.k3s.io | INSTALL_K3S_EXEC="agent \
+    --kubelet-arg cloud-provider=external \
+    --server ${k3s_url} \
+    --node-ip=$nodeip \
+    --flannel-iface=$iface \
+    --token=${cluster_token}" INSTALL_K3S_SKIP_START=false sh -
