@@ -59,3 +59,12 @@ resource "cloudflare_dns_record" "jellyseerr" {
   content = cloudflare_dns_record.cluster_record[0].name
   ttl     = 1
 }
+
+resource "cloudflare_dns_record" "qbittorrent" {
+  count   = local.loadbalancers ? 1 : 0
+  name    = join(".", ["qbittorrent", var.cloudflare_domain])
+  zone_id = var.cloudflare_dns_zone_id
+  type    = "CNAME"
+  content = cloudflare_dns_record.cluster_record[0].name
+  ttl     = 1
+}

@@ -51,7 +51,7 @@ resource "helm_release" "flux_sync" {
       kustomization = {
         spec = {
           interval = "30s"
-          path     = "./flux/kustomizations/"
+          path     = "./kustomizations/"
           prune    = true
         }
       }
