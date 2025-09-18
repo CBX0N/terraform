@@ -6,6 +6,15 @@ resource "cloudflare_dns_record" "server_record" {
   ttl     = 1
 }
 
+resource "cloudflare_dns_record" "firewalled_services" {
+  for_each = var.firewalled_services
+  name     = join(".", [each.value, var.cloudflare_domain])
+  zone_id  = var.cloudflare_dns_zone_id
+  type     = "CNAME"
+  content  = cloudflare_dns_record.server_record.name
+  ttl      = 1
+}
+
 data "hcloud_load_balancers" "loadbalancers" {}
 
 locals {
@@ -24,24 +33,6 @@ resource "cloudflare_dns_record" "cluster_record" {
   ttl = 1
 }
 
-resource "cloudflare_dns_record" "radarr" {
-  count   = local.loadbalancers ? 1 : 0
-  name    = join(".", ["radarr", var.cloudflare_domain])
-  zone_id = var.cloudflare_dns_zone_id
-  type    = "CNAME"
-  content = cloudflare_dns_record.cluster_record[0].name
-  ttl     = 1
-}
-
-resource "cloudflare_dns_record" "sonarr" {
-  count   = local.loadbalancers ? 1 : 0
-  name    = join(".", ["sonarr", var.cloudflare_domain])
-  zone_id = var.cloudflare_dns_zone_id
-  type    = "CNAME"
-  content = cloudflare_dns_record.cluster_record[0].name
-  ttl     = 1
-}
-
 resource "cloudflare_dns_record" "jellyfin" {
   count   = local.loadbalancers ? 1 : 0
   name    = join(".", ["jellyfin", var.cloudflare_domain])
@@ -54,15 +45,6 @@ resource "cloudflare_dns_record" "jellyfin" {
 resource "cloudflare_dns_record" "jellyseerr" {
   count   = local.loadbalancers ? 1 : 0
   name    = join(".", ["jellyseerr", var.cloudflare_domain])
-  zone_id = var.cloudflare_dns_zone_id
-  type    = "CNAME"
-  content = cloudflare_dns_record.cluster_record[0].name
-  ttl     = 1
-}
-
-resource "cloudflare_dns_record" "qbittorrent" {
-  count   = local.loadbalancers ? 1 : 0
-  name    = join(".", ["qbittorrent", var.cloudflare_domain])
   zone_id = var.cloudflare_dns_zone_id
   type    = "CNAME"
   content = cloudflare_dns_record.cluster_record[0].name

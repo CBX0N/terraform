@@ -81,3 +81,7 @@ variable "flux_gitRepository" {
 variable "cluster_dns_name" {
   type = string
 }
+
+variable "firewalled_services" {
+  type = set(string)
+}
