@@ -1,77 +1,98 @@
-resource "hcloud_placement_group" "placement_a" {
-  name   = "placement-A"
+resource "hcloud_network" "main" {
+  name     = join("-", [local.prefix, "net-01"])
+  ip_range = var.network.ip_range
+}
+
+resource "hcloud_network_subnet" "main" {
+  network_id   = hcloud_network.main.id
+  type         = var.network.subnet.type
+  network_zone = var.network.subnet.network_zone
+  ip_range     = var.network.subnet.ip_range
+}
+
+resource "hcloud_placement_group" "main" {
+  name   = join("-", [local.prefix, "placement-group"])
+  labels = local.tags
   type   = "spread"
-  labels = var.default_labels
 }
 
-resource "hcloud_network" "net_01" {
-  name     = "net-01"
-  ip_range = "10.0.0.0/16"
-  labels   = var.default_labels
+resource "tls_private_key" "cluster" {
+  algorithm = "ED25519"
 }
 
-resource "hcloud_network_subnet" "snet_01" {
-  network_id   = hcloud_network.net_01.id
-  type         = "cloud"
-  network_zone = "eu-central"
-  ip_range     = "10.0.0.0/24"
+resource "hcloud_ssh_key" "cluster" {
+  name       = join("-", [local.prefix, "cluster-ssh-key"])
+  public_key = tls_private_key.cluster.public_key_openssh
 }
 
-resource "hcloud_firewall" "fw01" {
-  name = "fw-01"
+resource "hcloud_server" "primary_server_node" {
+  name               = join("-", [local.prefix, "k3s-primary"])
+  image              = var.cluster.image
+  server_type        = var.cluster.server_node_type
+  location           = var.location
+  labels             = merge(local.tags, { join("-", [local.prefix, "firewall"]) = true })
+  placement_group_id = hcloud_placement_group.main.id
+  ssh_keys           = [hcloud_ssh_key.cluster.id]
+  user_data          = local.user_data_server
+
+  network {
+    network_id = hcloud_network.main.id
+    ip         = var.cluster.primary_server_ip
+  }
+
+  public_net {
+    ipv4_enabled = true
+    ipv6_enabled = false
+  }
+
+  lifecycle {
+    ignore_changes = [ssh_keys]
+  }
+}
+
+resource "hcloud_server" "agent_nodes" {
+  depends_on         = [hcloud_server.primary_server_node]
+  count              = var.cluster.agent_node_count
+  name               = join("-", [local.prefix, "k3s-node", count.index])
+  image              = var.cluster.image
+  server_type        = var.cluster.agent_node_type
+  location           = var.location
+  labels             = merge(local.tags, { join("-", [local.prefix, "firewall"]) = true })
+  placement_group_id = hcloud_placement_group.main.id
+  ssh_keys           = [hcloud_ssh_key.cluster.id]
+  user_data          = local.user_data_agent
+
+  network {
+    network_id = hcloud_network.main.id
+  }
+
+  public_net {
+    ipv4_enabled = true
+    ipv6_enabled = false
+  }
+
+  lifecycle {
+    ignore_changes       = [ssh_keys, network]
+    replace_triggered_by = [hcloud_server.primary_server_node.id]
+  }
+}
+
+resource "hcloud_firewall" "main" {
+  name = join("-", [local.prefix, "firewall"])
+  apply_to {
+    label_selector = join("-", [local.prefix, "firewall"])
+  }
+
   dynamic "rule" {
-    for_each = var.fw_rules
+    for_each = var.firewall_rules
     content {
-      destination_ips = rule.value.destination_ips
-      direction       = rule.value.direction
-      protocol        = rule.value.protocol
-      source_ips      = rule.value.source_ips
-      port            = rule.value.port
+      description     = rule.value["description"]
+      destination_ips = rule.value["destination_ips"]
+      direction       = rule.value["direction"]
+      port            = rule.value["port"]
+      protocol        = rule.value["protocol"]
+      source_ips      = rule.value["source_ips"]
     }
   }
-  apply_to {
-    label_selector = "firewall"
-  }
-  labels = var.default_labels
 }
 
-module "k3s_cluster" {
-  depends_on         = [hcloud_network_subnet.snet_01]
-  source             = "./modules/hcloud_k3s_cluster"
-  image              = "ubuntu-24.04"
-  server_type        = "cax11"
-  agent_type         = "cax11"
-  location           = "fsn1"
-  private_ip         = "10.0.0.4"
-  agent_node_count   = var.agent_node_count
-  dns_name           = var.cluster_dns_name
-  gateway_ip         = "10.0.0.1"
-  cloud_init_user    = var.cloud_init_user
-  tags               = merge(var.default_labels, { firewall = true })
-  network_id         = hcloud_network.net_01.id
-  placement_group_id = hcloud_placement_group.placement_a.id
-}
-
-resource "local_file" "kubeconfig" {
-  filename        = "${var.user_home}/.kube/config"
-  content         = module.k3s_cluster.kubeconfig
-  file_permission = "0600"
-}
-
-resource "local_file" "certificate_authority_data" {
-  filename        = "${var.user_home}/.kube/ca.crt"
-  content         = module.k3s_cluster.certificate-authority-data
-  file_permission = "0600"
-}
-
-resource "local_file" "client_key_data" {
-  filename        = "${var.user_home}/.kube/client.key"
-  content         = module.k3s_cluster.client-key-data
-  file_permission = "0600"
-}
-
-resource "local_file" "client_certificate_data" {
-  filename        = "${var.user_home}/.kube/client.crt"
-  content         = module.k3s_cluster.client-certificate-data
-  file_permission = "0600"
-}

@@ -34,20 +34,17 @@ provider "hcloud" {
 }
 
 provider "cloudflare" {
-  api_token = var.cloudflare_api_token
+  api_token = var.cloudflare.api_token
 }
 
 provider "kubernetes" {
-  host                   = "https://${var.cluster_dns_name}:6443"
-  client_certificate     = local_file.client_certificate_data.content
-  client_key             = local_file.client_key_data.content
-  cluster_ca_certificate = local_file.certificate_authority_data.content
+  config_path = "${path.module}/${join("-", [local.prefix, "cluster-kubeconfig"])}"
+  insecure    = true
 }
+
 provider "helm" {
   kubernetes = {
-    host                   = "https://${var.cluster_dns_name}:6443"
-    client_certificate     = local_file.client_certificate_data.content
-    client_key             = local_file.client_key_data.content
-    cluster_ca_certificate = local_file.certificate_authority_data.content
+    config_path = "${path.module}/${join("-", [local.prefix, "cluster-kubeconfig"])}"
+    insecure    = true
   }
 }
