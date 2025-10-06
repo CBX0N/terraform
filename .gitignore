@@ -1,7 +1,6 @@
 .terraform
 terraform.tfstate
 terraform.tfstate.backup
-terraform.tfstate
-terraform.tfvars
-.terraform.lock.hcl
 state.config
+environment/dev/terraform.tfvars
+environment/prod/terraform.tfvars
