@@ -105,6 +105,7 @@ data "cloudflare_dns_records" "name" {
   name = {
     exact = var.cloudflare.domain
   }
+  type = "A"
 }
 
 resource "local_file" "metallb_ipaddresspool" {
@@ -136,6 +137,7 @@ resource "local_file" "metallb_l2advertisement" {
 }
 
 resource "helm_release" "metallb" {
+  depends_on = [data.external.kubeconfig]
   name             = "metallb"
   namespace        = "metallb-system"
   repository       = "https://metallb.github.io/metallb"
@@ -144,12 +146,12 @@ resource "helm_release" "metallb" {
   cleanup_on_fail  = true
 
   provisioner "local-exec" {
-    command = "kubectl apply -f ${local_file.metallb_ipaddresspool.filename}"
+    command = "kubectl apply --kubeconfig=${local_sensitive_file.kubeconfig.filename} -f ${local_file.metallb_ipaddresspool.filename}"
     when    = create
   }
 
   provisioner "local-exec" {
-    command = "kubectl apply -f ${local_file.metallb_l2advertisement.filename}"
+    command = "kubectl apply --kubeconfig=${local_sensitive_file.kubeconfig.filename} -f ${local_file.metallb_l2advertisement.filename}"
     when    = create
   }
 
