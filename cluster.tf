@@ -18,12 +18,12 @@ data "external" "kubeconfig" {
 }
 
 resource "local_sensitive_file" "kubeconfig" {
-  depends_on = [ data.external.kubeconfig ]
+  depends_on      = [data.external.kubeconfig]
   filename        = "${path.module}/${join("-", [local.prefix, "cluster-kubeconfig"])}"
   content         = data.external.kubeconfig.result["kubeconfig"]
   file_permission = "0600"
   lifecycle {
-    ignore_changes = [ content ]
+    ignore_changes = [content]
   }
 }
 
@@ -98,6 +98,64 @@ resource "helm_release" "flux_sync" {
       }
     })
   ]
+}
+
+data "cloudflare_dns_records" "name" {
+  zone_id = var.cloudflare.dns_zone_id
+  name = {
+    exact = var.cloudflare.domain
+  }
+}
+
+resource "local_file" "metallb_ipaddresspool" {
+  filename = "${path.module}/${join("-", [local.prefix, "ipaddresspool.json"])}"
+  content = jsonencode({
+    "apiVersion" = "metallb.io/v1beta1"
+    "kind"       = "IPAddressPool"
+    "metadata" = {
+      "name"      = "pool"
+      "namespace" = "metallb-system"
+    }
+    "spec" = { "addresses" = [for record in data.cloudflare_dns_records.name.result : "${record.content}/32"] }
+    }
+  )
+}
+
+resource "local_file" "metallb_l2advertisement" {
+  filename = "${path.module}/${join("-", [local.prefix, "metallb-l2advertisement.json"])}"
+  content = jsonencode({
+    "apiVersion" = "metallb.io/v1beta1"
+    "kind"       = "L2Advertisement"
+    "metadata" = {
+      "name"      = "l2-advertisement"
+      "namespace" = "metallb-system"
+    }
+    "spec" = { "ipAddressPools" = ["pool"] }
+    }
+  )
+}
+
+resource "helm_release" "metallb" {
+  name             = "metallb"
+  namespace        = "metallb-system"
+  repository       = "https://metallb.github.io/metallb"
+  chart            = "metallb"
+  create_namespace = true
+  cleanup_on_fail  = true
+
+  provisioner "local-exec" {
+    command = "kubectl apply -f ${local_file.metallb_ipaddresspool.filename}"
+    when    = create
+  }
+
+  provisioner "local-exec" {
+    command = "kubectl apply -f ${local_file.metallb_l2advertisement.filename}"
+    when    = create
+  }
+
+  lifecycle {
+    replace_triggered_by = [local_file.metallb_ipaddresspool, local_file.metallb_l2advertisement]
+  }
 }
 
 resource "kubernetes_secret" "flux_ssh_key" {

@@ -58,9 +58,9 @@ variable "firewall_rules" {
 }
 
 variable "flux" {
-  type= object({
+  type = object({
     git_repository = string
-    repo_tag = string
-    path = string
+    repo_tag       = string
+    path           = string
   })
 }

@@ -29,6 +29,7 @@ locals {
           --cluster-init \
           --disable=traefik \
           --disable-cloud-controller \
+          --disable servicelb \
           --kubelet-arg cloud-provider=external \
           --node-ip=$nodeip \
           --flannel-iface=$iface \
