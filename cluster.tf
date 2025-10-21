@@ -1,5 +1,5 @@
 resource "local_sensitive_file" "ssh_key" {
-  filename        = "${path.module}/${join("-", [local.prefix, "cluster-ssh-key"])}"
+  filename        = "${path.module}/environment/${var.environment}/${join("-", [local.prefix, "cluster-ssh-key"])}"
   content         = tls_private_key.cluster.private_key_openssh
   file_permission = "0600"
 }
@@ -19,7 +19,7 @@ data "external" "kubeconfig" {
 
 resource "local_sensitive_file" "kubeconfig" {
   depends_on      = [data.external.kubeconfig]
-  filename        = "${path.module}/${join("-", [local.prefix, "cluster-kubeconfig"])}"
+  filename        = "${path.module}/environment/${var.environment}/${join("-", [local.prefix, "cluster-kubeconfig"])}"
   content         = data.external.kubeconfig.result["kubeconfig"]
   file_permission = "0600"
   lifecycle {
@@ -109,7 +109,7 @@ data "cloudflare_dns_records" "name" {
 }
 
 resource "local_file" "metallb_ipaddresspool" {
-  filename = "${path.module}/${join("-", [local.prefix, "ipaddresspool.json"])}"
+  filename = "${path.module}/environment/${var.environment}/${join("-", [local.prefix, "ipaddresspool.json"])}"
   content = jsonencode({
     "apiVersion" = "metallb.io/v1beta1"
     "kind"       = "IPAddressPool"
@@ -123,7 +123,7 @@ resource "local_file" "metallb_ipaddresspool" {
 }
 
 resource "local_file" "metallb_l2advertisement" {
-  filename = "${path.module}/${join("-", [local.prefix, "metallb-l2advertisement.json"])}"
+  filename = "${path.module}/environment/${var.environment}/${join("-", [local.prefix, "metallb-l2advertisement.json"])}"
   content = jsonencode({
     "apiVersion" = "metallb.io/v1beta1"
     "kind"       = "L2Advertisement"

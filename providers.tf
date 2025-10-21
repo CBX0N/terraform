@@ -38,13 +38,13 @@ provider "cloudflare" {
 }
 
 provider "kubernetes" {
-  config_path = "${path.module}/${join("-", [local.prefix, "cluster-kubeconfig"])}"
+  config_path = "${path.module}/environment/${var.environment}/${join("-", [local.prefix, "cluster-kubeconfig"])}"
   insecure    = true
 }
 
 provider "helm" {
   kubernetes = {
-    config_path = "${path.module}/${join("-", [local.prefix, "cluster-kubeconfig"])}"
+    config_path = "${path.module}/environment/${var.environment}/${join("-", [local.prefix, "cluster-kubeconfig"])}"
     insecure    = true
   }
 }
